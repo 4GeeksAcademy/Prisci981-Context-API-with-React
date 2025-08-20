@@ -1,37 +1,166 @@
-// Import necessary hooks and components from react-router-dom and other libraries.
-import { Link, useParams } from "react-router-dom";  // To use link for navigation and useParams to get URL parameters
-import PropTypes from "prop-types";  // To define prop types for this component
-import rigoImageUrl from "../assets/img/rigo-baby.jpg"  // Import an image asset
-import useGlobalReducer from "../hooks/useGlobalReducer";  // Import a custom hook for accessing the global state
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useContacts } from '../hooks/useGlobalReduce';
 
-// Define and export the Single component which displays individual item details.
-export const Single = props => {
-  // Access the global state using the custom hook.
-  const { store } = useGlobalReducer()
+// Add/Edit Contact Form View (Single Page)
+const Single = ({ onBack, editingContact = null }) => {
+  const { createContact, updateContact, loading } = useContacts();
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
+  const [errors, setErrors] = useState({});
 
-  // Retrieve the 'theId' URL parameter using useParams hook.
-  const { theId } = useParams()
-  const singleTodo = store.todos.find(todo => todo.id === parseInt(theId));
+  useEffect(() => {
+    if (editingContact) {
+      setFormData({
+        name: editingContact.name || '',
+        phone: editingContact.phone || '',
+        email: editingContact.email || '',
+        address: editingContact.address || ''
+      });
+    }
+  }, [editingContact]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const success = editingContact
+      ? await updateContact(editingContact.id, formData)
+      : await createContact(formData);
+
+    if (success) {
+      onBack();
+    }
+  };
 
   return (
-    <div className="container text-center">
-      {/* Display the title of the todo element dynamically retrieved from the store using theId. */}
-      <h1 className="display-4">Todo: {singleTodo?.title}</h1>
-      <hr className="my-4" />  {/* A horizontal rule for visual separation. */}
+    <div className="max-w-3xl mx-auto">
+      <div className="modern-container">
+        <div className="mb-8">
+          <button
+            onClick={onBack}
+            className="btn-secondary mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Contacts
+          </button>
+          <h1 className="modern-header">
+            {editingContact ? 'Edit Contact' : 'Add New Contact'}
+          </h1>
+        </div>
 
-      {/* A Link component acts as an anchor tag but is used for client-side routing to prevent page reloads. */}
-      <Link to="/">
-        <span className="btn btn-primary btn-lg" href="#" role="button">
-          Back home
-        </span>
-      </Link>
+        <div className="modern-form">
+          <div className="space-y-6">
+            <div className="form-group">
+              <label htmlFor="name" className="form-label">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className={`form-input ${errors.name ? 'error' : ''}`}
+                placeholder="Enter full name"
+              />
+              {errors.name && <p className="error-message">{errors.name}</p>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="phone" className="form-label">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className={`form-input ${errors.phone ? 'error' : ''}`}
+                placeholder="Enter phone number"
+              />
+              {errors.phone && <p className="error-message">{errors.phone}</p>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={`form-input ${errors.email ? 'error' : ''}`}
+                placeholder="Enter email address"
+              />
+              {errors.email && <p className="error-message">{errors.email}</p>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="address" className="form-label">
+                Address
+              </label>
+              <textarea
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                rows="3"
+                className="form-input"
+                placeholder="Enter address"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onBack}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                onClick={handleSubmit}
+                className="btn-modern flex-1"
+              >
+                {loading ? 'Saving...' : (editingContact ? 'Update Contact' : 'Create Contact')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-// Use PropTypes to validate the props passed to this component, ensuring reliable behavior.
-Single.propTypes = {
-  // Although 'match' prop is defined here, it is not used in the component.
-  // Consider removing or using it as needed.
-  match: PropTypes.object
-};
+export default Single;
